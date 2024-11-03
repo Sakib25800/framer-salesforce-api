@@ -21,7 +21,7 @@ router.post("/authorize", async (c) => {
 
   const authorizeParams = new URLSearchParams({
     client_id: env.CLIENT_ID,
-    redirect_uri: env.REDIRECT_URI,
+    redirect_uri: `${env.WORKER_URL}${env.REDIRECT_PATH}`,
     response_type: "code",
     access_type: "online",
     prompt: "consent",
@@ -76,7 +76,7 @@ router.get("/redirect", async (c) => {
     code: authorizationCode,
     client_id: env.CLIENT_ID,
     client_secret: env.CLIENT_SECRET,
-    redirect_uri: env.REDIRECT_URI,
+    redirect_uri: `${env.WORKER_URL}${env.REDIRECT_PATH}`,
     code_verifier: codeVerifier,
   });
 

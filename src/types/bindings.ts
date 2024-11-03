@@ -4,7 +4,7 @@ export interface Bindings {
   CLIENT_SECRET: string;
   PLUGIN_ID: string;
   PLUGIN_PARENT_DOMAIN: string;
-  REDIRECT_URI: string;
+  REDIRECT_PATH: string;
   AUTHORIZE_ENDPOINT: string;
   TOKEN_ENDPOINT: string;
   SCOPE: string;

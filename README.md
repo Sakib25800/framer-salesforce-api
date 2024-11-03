@@ -56,7 +56,7 @@ API to handle OAuth authentication and form submissions for the Framer Salesforc
 CLIENT_ID=XXXXXXX
 CLIENT_SECRET=XXXXXXX
 
-REDIRECT_URI=/auth/redirect
+REDIRECT_PATH=/auth/redirect
 AUTHORIZE_ENDPOINT=https://login.salesforce.com/services/oauth2/authorize
 TOKEN_ENDPOINT=https://login.salesforce.com/services/oauth2/token
 
