@@ -138,4 +138,37 @@ router.post("/poll", async (c) => {
   return c.json(JSON.parse(tokens));
 });
 
+router.post("/refresh", async (c) => {
+  const env = c.env;
+  const refresh_token = c.req.query("code");
+
+  if (!refresh_token) {
+    throw new APIError("Missing refresh token", 400);
+  }
+
+  const tokenParams = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refresh_token,
+    client_id: env.CLIENT_ID,
+    client_secret: env.CLIENT_SECRET,
+  });
+
+  const tokenUrl = new URL(env.TOKEN_ENDPOINT);
+  tokenUrl.search = tokenParams.toString();
+
+  const tokenResponse = await fetch(tokenUrl.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  if (tokenResponse.status !== 200) {
+    return c.text(tokenResponse.statusText, tokenResponse.status as StatusCode);
+  }
+
+  const tokens: TokensResponse = await tokenResponse.json();
+  return c.json(tokens);
+});
+
 export { router as auth };
