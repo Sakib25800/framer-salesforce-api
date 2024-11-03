@@ -1,18 +1,10 @@
 <p align="center">
-  <img src="./assets/logo.svg" alt="Framer x Salesforce Logo" style="width: 100%; max-width: 300px;"/>
+  <img src="./assets/logo.svg" alt="Framer x Salesforce Logo" width="250"/>
 </p>
 
 # Framer Salesforce Plugin API
 
-API to handle OAuth authentication and form submissions between for the Framer Salesforce Plugin.
-
-## Features
-
-- OAuth 2.0 authentication flow with PKCE
-- Secure form token generation and validation
-- Automatic token refresh handling
-- Support for creating and updating Salesforce objects
-- CORS protection for Framer plugin domains
+API to handle OAuth authentication and form submissions for the Framer Salesforce Plugin.
 
 ## API Routes
 
@@ -25,7 +17,7 @@ API to handle OAuth authentication and form submissions between for the Framer S
 | POST | `/forms/create` | Creates a new form configuration and returns a form token |
 | POST | `/forms/:formToken` | Handles form submission and creates/updates Salesforce objects |
 
-## Detailed Route Explanations
+## Routes
 
 ### Authentication Routes
 
@@ -59,33 +51,22 @@ API to handle OAuth authentication and form submissions between for the Framer S
 
 ## Environment Variables
 
-```typescript
-interface Bindings {
-  CLIENT_ID: string;            // Salesforce OAuth client ID
-  WORKER_URL: string;           // Base URL of the worker
-  CLIENT_SECRET: string;        // Salesforce OAuth client secret
-  PLUGIN_ID: string;           // Framer plugin ID
-  PLUGIN_PARENT_DOMAIN: string; // Framer plugin parent domain
-  REDIRECT_URI: string;         // OAuth redirect URI
-  AUTHORIZE_ENDPOINT: string;   // Salesforce authorize endpoint
-  TOKEN_ENDPOINT: string;       // Salesforce token endpoint
-  SCOPE: string;               // OAuth scope
-  OAUTH_KV: KVNamespace;       // KV namespace for token storage
-}
+```bash
+# Salesforce OAuth Configuration
+CLIENT_ID=XXXXXXX
+CLIENT_SECRET=XXXXXXX
+
+REDIRECT_URI=/auth/redirect
+AUTHORIZE_ENDPOINT=https://login.salesforce.com/services/oauth2/authorize
+TOKEN_ENDPOINT=https://login.salesforce.com/services/oauth2/token
+
+SCOPE=api pardot_api openid refresh_token offline_access custom_permissions chatbot_api id profile email web
+
+# CORS
+PLUGIN_ID=""
+PLUGIN_PARENT_DOMAIN=""
+
+# Worker Config
+WORKER_URL=http://localhost:8787
+
 ```
-
-## Error Handling
-
-The API includes comprehensive error handling with:
-- Custom `APIError` class for controlled errors
-- Proper status codes and error messages
-- CORS validation
-- Token validation and refresh
-
-## Security Features
-
-- PKCE flow for OAuth
-- Secure token storage
-- CORS protection
-- Temporary and permanent token storage separation
-- UUID-based form tokens
