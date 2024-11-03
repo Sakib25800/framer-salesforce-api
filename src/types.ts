@@ -1,4 +1,4 @@
-export interface TokenData {
+export interface StoredToken {
   refresh_token: string;
   instance_url: string;
 }
@@ -54,6 +54,7 @@ export interface ObjectSuccessResponse {
 
 export interface Bindings {
   CLIENT_ID: string;
+  WORKER_URL: string;
   CLIENT_SECRET: string;
   PLUGIN_ID: string;
   PLUGIN_PARENT_DOMAIN: string;
@@ -62,4 +63,10 @@ export interface Bindings {
   TOKEN_ENDPOINT: string;
   SCOPE: string;
   OAUTH_KV: KVNamespace;
+}
+
+export interface FormConfig {
+  orgId: string;
+  objectType: string;
+  createdAt: number;
 }
