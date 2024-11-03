@@ -7,18 +7,14 @@ import {
   generateCodeVerifier,
 } from "./utils";
 import { getHTMLTemplate } from "./getHTMLTemplate";
-
-interface Bindings {
-  CLIENT_ID: string;
-  CLIENT_SECRET: string;
-  PLUGIN_ID: string;
-  PLUGIN_PARENT_DOMAIN: string;
-  REDIRECT_URI: string;
-  AUTHORIZE_ENDPOINT: string;
-  TOKEN_ENDPOINT: string;
-  SCOPE: string;
-  OAUTH_KV: KVNamespace;
-}
+import {
+  Bindings,
+  TokenData,
+  TokensResponse,
+  ObjectSuccessResponse,
+  ObjectErrorResponse,
+} from "./types";
+import { getAccessToken } from "./auth";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -50,18 +46,15 @@ app.use("*", async (c, next) => {
   return corsMiddleware(c.env)(c, next);
 });
 
-// Routes
 app.get("/", (c) => {
   return c.text("✅ OAuth Worker is up and running!");
 });
 
-// Auth routes
 app.post("/auth/authorize", async (c) => {
   const env = c.env;
   const readKey = generateRandomId();
   const writeKey = generateRandomId();
 
-  // Generate PKCE values
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
@@ -81,7 +74,6 @@ app.post("/auth/authorize", async (c) => {
   const authorizeUrl = new URL(env.AUTHORIZE_ENDPOINT);
   authorizeUrl.search = authorizeParams.toString();
 
-  // Store both the readKey and codeVerifier
   await env.OAUTH_KV.put(
     `readKey:${writeKey}`,
     JSON.stringify({
@@ -141,11 +133,22 @@ app.get("/auth/redirect", async (c) => {
     return c.text(tokenResponse.statusText, tokenResponse.status as StatusCode);
   }
 
-  if (!readKey) {
-    return c.text("No read key found in storage", 400);
-  }
+  const tokens: TokensResponse = await tokenResponse.json();
 
-  const tokens = await tokenResponse.json();
+  // Extract org ID from the identity URL
+  const identityUrl = new URL(tokens.id);
+  const orgId = identityUrl.pathname.split("/")[2];
+
+  // Only store refresh token and instance URL permanently
+  const tokenData: TokenData = {
+    refresh_token: tokens.refresh_token,
+    instance_url: tokens.instance_url,
+  };
+
+  // Store minimal data permanently
+  await env.OAUTH_KV.put(`org:${orgId}`, JSON.stringify(tokenData));
+
+  // Store full token response temporarily for polling
   await env.OAUTH_KV.put(`tokens:${readKey}`, JSON.stringify(tokens), {
     expirationTtl: 300,
   });
@@ -171,52 +174,107 @@ app.post("/auth/poll", async (c) => {
     return c.notFound();
   }
 
+  // Delete temporary tokens after reading
   await env.OAUTH_KV.delete(`tokens:${readKey}`);
 
   return c.json(JSON.parse(tokens));
 });
 
-app.post("/auth/refresh", async (c) => {
+// Forms endpoint
+app.post("/forms", async (c) => {
   const env = c.env;
-  const refreshToken = c.req.query("code");
+  const { orgId, object } = c.req.query();
 
-  if (!refreshToken) {
-    return c.text("Missing refresh token URL param", 400);
+  if (!orgId || !object) {
+    return c.json({ error: "Missing orgId or object parameter" }, 400);
   }
 
-  const refreshParams = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    client_id: env.CLIENT_ID,
-    client_secret: env.CLIENT_SECRET,
-  });
-
-  const refreshUrl = new URL(env.TOKEN_ENDPOINT);
-  refreshUrl.search = refreshParams.toString();
-
-  const refreshResponse = await fetch(refreshUrl.toString(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-  });
-
-  if (refreshResponse.status !== 200) {
-    return c.text(refreshResponse.statusText);
+  // Get stored minimal token data
+  const storedTokens = await env.OAUTH_KV.get(`org:${orgId}`);
+  if (!storedTokens) {
+    return c.json({ error: "No authentication found for this org" }, 401);
   }
 
-  const tokens = await refreshResponse.json();
+  const tokenData: TokenData = JSON.parse(storedTokens);
 
-  return c.json(tokens as Record<string, unknown>);
+  // Get fresh access token
+  const accessToken = await getAccessToken(env, tokenData);
+  if (!accessToken) {
+    return c.json({ error: "Failed to get access token" }, 401);
+  }
+
+  // Get the form data
+  const formData = await c.req.json();
+
+  try {
+    // Create object in Salesforce
+    const response = await fetch(
+      `${tokenData.instance_url}/services/data/v62.0/sobjects/${object}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      },
+    );
+
+    const result: ObjectSuccessResponse | ObjectErrorResponse[] =
+      await response.json();
+
+    if (!response.ok) {
+      const isDuplicateError =
+        Array.isArray(result) &&
+        result.length > 0 &&
+        result[0].errorCode === "DUPLICATES_DETECTED";
+
+      if (!isDuplicateError) {
+        throw new Error("Something went wrong");
+      }
+
+      const recordId =
+        result[0].duplicateResult?.matchResults[0]?.matchRecords[0]?.record?.Id;
+
+      if (!recordId) {
+        throw new Error("No record Id found for duplicate object");
+      }
+
+      // Update the existing record instead
+      const updateResponse = await fetch(
+        `${tokenData.instance_url}/services/data/v62.0/sobjects/${object}/${recordId}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        },
+      );
+
+      if (updateResponse.ok) {
+        return c.json({
+          id: recordId,
+          success: true,
+          updated: true,
+          errors: [],
+        });
+      }
+    }
+
+    return c.json(result);
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Failed to create object in Salesforce" }, 500);
+  }
 });
 
-// Error handling
 app.onError((err, c) => {
   const message = err instanceof Error ? err.message : "Unknown error";
   return c.text(`😔 Internal error: ${message}`, 500);
 });
 
-// 404 handler
 app.notFound((c) => {
   return c.text("Page not found", 404);
 });
