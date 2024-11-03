@@ -8,7 +8,7 @@ interface MatchResult {
   matchRecords: MatchRecord[];
 }
 
-export interface ObjectErrorResponse {
+export interface SalesforceObjectErrorResponse {
   duplicateResult: {
     allowSave: boolean;
     duplicateRule: string;
@@ -20,16 +20,16 @@ export interface ObjectErrorResponse {
   message: string;
 }
 
-interface ObjectError {
+interface SalesforceObjectError {
   statusCode: string;
   message: string;
   fields: string[];
 }
 
-export interface ObjectSuccessResponse {
+export interface SalesforceObjectSuccessResponse {
   id: string;
   success: boolean;
-  errors: ObjectError[];
+  errors: SalesforceObjectError[];
 }
 
 export interface FormConfig {

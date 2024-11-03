@@ -7,6 +7,7 @@ import {
 } from "../utils/helpers";
 import { getFramerHTMLTemplate } from "../utils/templates";
 import { StatusCode } from "hono/utils/http-status";
+import { APIError } from "../utils/errors";
 
 const router = new Hono<{ Bindings: Bindings }>();
 
@@ -56,16 +57,16 @@ router.get("/redirect", async (c) => {
   const { code: authorizationCode, state: writeKey } = c.req.query();
 
   if (!authorizationCode) {
-    return c.text("Missing authorization code URL param", 400);
+    throw new APIError("Missing authorization code URL param", 400);
   }
 
   if (!writeKey) {
-    return c.text("Missing state URL param", 400);
+    throw new APIError("Missing state URL param", 400);
   }
 
   const storedData = await env.OAUTH_KV.get(`readKey:${writeKey}`);
   if (!storedData) {
-    return c.text("No stored data found", 400);
+    throw new APIError("No stored data found", 404);
   }
 
   const { readKey, codeVerifier } = JSON.parse(storedData);
@@ -125,12 +126,12 @@ router.post("/poll", async (c) => {
   const readKey = c.req.query("readKey");
 
   if (!readKey) {
-    return c.text("Missing read key URL param", 400);
+    throw new APIError("Mising read key URL param", 404);
   }
 
   const tokens = await env.OAUTH_KV.get(`tokens:${readKey}`);
   if (!tokens) {
-    return c.notFound();
+    throw new APIError("No tokens", 404);
   }
 
   await env.OAUTH_KV.delete(`tokens:${readKey}`);

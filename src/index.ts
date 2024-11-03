@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { auth } from "./controllers/auth";
 import { forms } from "./controllers/forms";
-import type { Bindings } from "./types";
 import { corsMiddleware } from "./middlewares/cors";
 import { root } from "./controllers/root";
 import { APIError } from "./utils/errors";
+
+import type { Bindings } from "./types";
 
 const app = new Hono<{ Bindings: Bindings }>();
 

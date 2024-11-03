@@ -9,6 +9,7 @@ import type {
   StoredToken,
 } from "../types";
 import { getAccessToken } from "../services/auth";
+import { APIError } from "../utils/errors";
 
 const router = new Hono<{ Bindings: Bindings }>();
 
@@ -35,7 +36,7 @@ router.post(
     const formToken = crypto.randomUUID();
 
     // Store form configuration
-    const formConfig = {
+    const formConfig: FormConfig = {
       orgId,
       objectType,
       createdAt: Date.now(),
@@ -70,7 +71,7 @@ router.post("/:formToken", async (c) => {
   // Get stored minimal token data
   const storedTokens = await env.OAUTH_KV.get(`org:${orgId}`);
   if (!storedTokens) {
-    return c.json({ error: "No authentication found for this org" }, 401);
+    throw new APIError("No authentication found for this org", 401);
   }
 
   const StoredToken: StoredToken = JSON.parse(storedTokens);
@@ -78,7 +79,7 @@ router.post("/:formToken", async (c) => {
   // Get fresh access token
   const accessToken = await getAccessToken(env, StoredToken);
   if (!accessToken) {
-    return c.json({ error: "Failed to get access token" }, 401);
+    throw new APIError("Failed to get access token", 401);
   }
 
   // Get the form data
@@ -114,7 +115,7 @@ router.post("/:formToken", async (c) => {
       result[0].duplicateResult?.matchResults[0]?.matchRecords[0]?.record?.Id;
 
     if (!recordId) {
-      throw new Error("No record Id found for duplicate object");
+      throw new APIError("No record Id found for duplicate object", 401);
     }
 
     // Update the existing record instead
