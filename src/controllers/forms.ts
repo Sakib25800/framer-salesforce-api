@@ -15,29 +15,48 @@ import { StatusCode } from "hono/utils/http-status";
 
 const router = new Hono<{ Bindings: Bindings }>();
 
-router.post("/create", salesforceAuth, async (c) => {
-  const env = c.env;
-  const object = c.req.query("object");
+router.post(
+  "/create",
+  vValidator("json", v.object({ objectApiName: v.string() })),
+  salesforceAuth,
+  async (c) => {
+    const env = c.env;
+    const { objectApiName } = c.req.valid("json");
 
-  if (!object) {
-    throw new APIError("Missing object parameter", 400);
-  }
+    if (!objectApiName) {
+      throw new APIError("Missing object parameter", 400);
+    }
 
-  const { orgId } = c.get("salesforce");
-  const formToken = crypto.randomUUID();
+    const { orgId } = c.get("salesforce");
 
-  const formConfig: FormConfig = {
-    orgId,
-    object,
-    createdAt: Date.now(),
-  };
+    const existingFormKey = `form:${orgId}:${objectApiName}`;
+    const existingFormToken = await env.OAUTH_KV.get(existingFormKey);
 
-  await env.OAUTH_KV.put(`form:${formToken}`, JSON.stringify(formConfig));
+    if (existingFormToken) {
+      return c.json({
+        webhookUrl: `${env.WORKER_URL}/forms/${existingFormToken}`,
+      });
+    }
 
-  return c.json({
-    webhookUrl: `${env.WORKER_URL}/forms/${formToken}`,
-  });
-});
+    // Create a new form token and store the configuration
+    const formToken = crypto.randomUUID();
+    const formConfig: FormConfig = {
+      orgId,
+      objectApiName,
+      createdAt: Date.now(),
+    };
+
+    // Save the form configuration in with the new form token
+    await env.OAUTH_KV.put(`form:${formToken}`, JSON.stringify(formConfig));
+
+    // Store the reference to this token for future lookups
+    await env.OAUTH_KV.put(existingFormKey, formToken);
+
+    return c.json({
+      webhookUrl: `${env.WORKER_URL}/forms/${formToken}`,
+    });
+  },
+);
 
 router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
   const env = c.env;
@@ -54,7 +73,7 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
   }
 
   const formConfig: FormConfig = JSON.parse(storedConfig);
-  const { orgId, object } = formConfig;
+  const { orgId, objectApiName } = formConfig;
 
   // Get stored minimal token data
   const storedTokens = await env.OAUTH_KV.get(`org:${orgId}`);
@@ -75,7 +94,7 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
 
   // Create object in Salesforce
   const response = await fetch(
-    `${StoredToken.instance_url}/services/data/v62.0/sobjects/${object}`,
+    `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectApiName}`,
     {
       method: "POST",
       headers: {

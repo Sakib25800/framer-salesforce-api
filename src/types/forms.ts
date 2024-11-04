@@ -34,6 +34,6 @@ export interface SFObjectSuccessResponse {
 
 export interface FormConfig {
   orgId: string;
-  object: string;
+  objectApiName: string;
   createdAt: number;
 }
