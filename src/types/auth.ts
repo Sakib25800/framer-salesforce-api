@@ -17,3 +17,11 @@ export interface TokensResponse extends RefreshTokensResponse {
   scope: string;
   id_token: string;
 }
+
+export interface SFUser {
+  sub: string;
+  user_id: string;
+  organization_id: string;
+  name: string;
+  // Add more as needed
+}

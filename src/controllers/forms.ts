@@ -4,69 +4,57 @@ import * as v from "valibot";
 import type {
   Bindings,
   FormConfig,
-  ObjectErrorResponse,
-  ObjectSuccessResponse,
+  SFObjectErrorResponse,
+  SFObjectSuccessResponse,
   StoredToken,
 } from "../types";
 import { getAccessToken } from "../services/auth";
 import { APIError } from "../utils/errors";
+import { salesforceAuth } from "../middlewares/salesforceAuth";
+import { StatusCode } from "hono/utils/http-status";
 
 const router = new Hono<{ Bindings: Bindings }>();
 
-router.post(
-  "/create",
-  vValidator(
-    "json",
-    v.object({
-      orgId: v.string(),
-      objectType: v.string(),
-    }),
-  ),
-  async (c) => {
-    const env = c.env;
-    const { orgId, objectType } = c.req.valid("json");
+router.post("/create", salesforceAuth, async (c) => {
+  const env = c.env;
+  const object = c.req.query("object");
 
-    // Verify org exists and is authenticated
-    const storedTokens = await env.OAUTH_KV.get(`org:${orgId}`);
-    if (!storedTokens) {
-      return c.json({ error: "No authentication found for this org" }, 401);
-    }
+  if (!object) {
+    throw new APIError("Missing object parameter", 400);
+  }
 
-    // Generate secure form token
-    const formToken = crypto.randomUUID();
+  const { orgId } = c.get("salesforce");
+  const formToken = crypto.randomUUID();
 
-    // Store form configuration
-    const formConfig: FormConfig = {
-      orgId,
-      objectType,
-      createdAt: Date.now(),
-    };
+  const formConfig: FormConfig = {
+    orgId,
+    object,
+    createdAt: Date.now(),
+  };
 
-    await env.OAUTH_KV.put(`form:${formToken}`, JSON.stringify(formConfig));
+  await env.OAUTH_KV.put(`form:${formToken}`, JSON.stringify(formConfig));
 
-    return c.json({
-      formToken,
-      webhookUrl: `${env.WORKER_URL}/forms/${formToken}`,
-    });
-  },
-);
+  return c.json({
+    webhookUrl: `${env.WORKER_URL}/forms/${formToken}`,
+  });
+});
 
-router.post("/:formToken", async (c) => {
+router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
   const env = c.env;
   const formToken = c.req.param("formToken");
 
   if (!formToken) {
-    return c.json({ error: "Missing form token" }, 400);
+    throw new APIError("Missing form token", 400);
   }
 
   // Get the form configuration from KV
   const storedConfig = await env.OAUTH_KV.get(`form:${formToken}`);
   if (!storedConfig) {
-    return c.json({ error: "Invalid form token" }, 401);
+    throw new APIError("Invalid form token", 401);
   }
 
   const formConfig: FormConfig = JSON.parse(storedConfig);
-  const { orgId, objectType } = formConfig;
+  const { orgId, object } = formConfig;
 
   // Get stored minimal token data
   const storedTokens = await env.OAUTH_KV.get(`org:${orgId}`);
@@ -87,7 +75,7 @@ router.post("/:formToken", async (c) => {
 
   // Create object in Salesforce
   const response = await fetch(
-    `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectType}`,
+    `${StoredToken.instance_url}/services/data/v62.0/sobjects/${object}`,
     {
       method: "POST",
       headers: {
@@ -98,7 +86,7 @@ router.post("/:formToken", async (c) => {
     },
   );
 
-  const result: ObjectSuccessResponse | ObjectErrorResponse[] =
+  const result: SFObjectSuccessResponse | SFObjectErrorResponse[] =
     await response.json();
 
   if (!response.ok) {
@@ -108,7 +96,10 @@ router.post("/:formToken", async (c) => {
       result[0].errorCode === "DUPLICATES_DETECTED";
 
     if (!isDuplicateError) {
-      throw new Error("Something went wrong");
+      throw new APIError(
+        "Failed to create Salesforce object",
+        response.status as StatusCode,
+      );
     }
 
     const recordId =
@@ -120,7 +111,7 @@ router.post("/:formToken", async (c) => {
 
     // Update the existing record instead
     const updateResponse = await fetch(
-      `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectType}/${recordId}`,
+      `${StoredToken.instance_url}/services/data/v62.0/sobjects/${object}/${recordId}`,
       {
         method: "PATCH",
         headers: {
