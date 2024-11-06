@@ -116,7 +116,9 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
 
     if (!isDuplicateError) {
       throw new APIError(
-        "Failed to create Salesforce object",
+        Array.isArray(result)
+          ? result[0].message
+          : "Failed to create Salesforce Object",
         response.status as StatusCode,
       );
     }
@@ -130,7 +132,7 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
 
     // Update the existing record instead
     const updateResponse = await fetch(
-      `${StoredToken.instance_url}/services/data/v62.0/sobjects/${object}/${recordId}`,
+      `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectName}/${recordId}`,
       {
         method: "PATCH",
         headers: {
