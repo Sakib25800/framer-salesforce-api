@@ -17,19 +17,19 @@ const router = new Hono<{ Bindings: Bindings }>();
 
 router.post(
   "/create",
-  vValidator("json", v.object({ objectApiName: v.string() })),
+  vValidator("json", v.object({ objectName: v.string() })),
   salesforceAuth,
   async (c) => {
     const env = c.env;
-    const { objectApiName } = c.req.valid("json");
+    const { objectName } = c.req.valid("json");
 
-    if (!objectApiName) {
+    if (!objectName) {
       throw new APIError("Missing object parameter", 400);
     }
 
     const { orgId } = c.get("salesforce");
 
-    const existingFormKey = `form:${orgId}:${objectApiName}`;
+    const existingFormKey = `form:${orgId}:${objectName}`;
     const existingFormToken = await env.OAUTH_KV.get(existingFormKey);
 
     if (existingFormToken) {
@@ -42,7 +42,7 @@ router.post(
     const formToken = crypto.randomUUID();
     const formConfig: FormConfig = {
       orgId,
-      objectApiName,
+      objectName,
       createdAt: Date.now(),
     };
 
@@ -73,7 +73,7 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
   }
 
   const formConfig: FormConfig = JSON.parse(storedConfig);
-  const { orgId, objectApiName } = formConfig;
+  const { orgId, objectName } = formConfig;
 
   // Get stored minimal token data
   const storedTokens = await env.OAUTH_KV.get(`org:${orgId}`);
@@ -94,7 +94,7 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
 
   // Create object in Salesforce
   const response = await fetch(
-    `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectApiName}`,
+    `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectName}`,
     {
       method: "POST",
       headers: {
