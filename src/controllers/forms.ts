@@ -92,6 +92,12 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
   // Get the form data
   const formData = await c.req.json();
 
+  // Transform "on" and "off" values to boolean
+  Object.keys(formData).forEach((key) => {
+    if (formData[key] === "on") formData[key] = true;
+    else if (formData[key] === "off") formData[key] = false;
+  });
+
   // Create object in Salesforce
   const response = await fetch(
     `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectName}`,
