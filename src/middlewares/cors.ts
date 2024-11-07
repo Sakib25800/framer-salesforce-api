@@ -1,6 +1,5 @@
 import { cors } from "hono/cors";
 import { Bindings } from "../types";
-
 export const corsMiddleware = (env: Bindings) => {
   return cors({
     origin: (origin) => {
@@ -8,7 +7,7 @@ export const corsMiddleware = (env: Bindings) => {
         return `https://${env.PLUGIN_ID}.${env.PLUGIN_PARENT_DOMAIN}`;
 
       const originURL = new URL(origin);
-      if (originURL.hostname === "localhost") {
+      if (originURL.hostname === "localhost" || origin === "https://salesforce-plugin.pages.dev") {
         return origin;
       }
 
