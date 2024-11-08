@@ -16,7 +16,7 @@ import { StatusCode } from "hono/utils/http-status";
 const router = new Hono<{ Bindings: Bindings }>();
 
 router.post(
-  "/create",
+  "/web/create",
   vValidator("json", v.object({ objectName: v.string() })),
   salesforceAuth,
   async (c) => {
@@ -53,12 +53,12 @@ router.post(
     await env.OAUTH_KV.put(existingFormKey, formToken);
 
     return c.json({
-      webhookUrl: `${env.WORKER_URL}/forms/${formToken}`,
+      webhookUrl: `${env.WORKER_URL}/forms/web/${formToken}`,
     });
   },
 );
 
-router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
+router.post("/web/:formToken", vValidator("json", v.object({})), async (c) => {
   const env = c.env;
   const formToken = c.req.param("formToken");
 
@@ -164,5 +164,46 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
 
   return c.json(result);
 });
+
+router.post(
+  "/account-engagement/forward",
+  vValidator("json", v.object({})),
+  async (c) => {
+    const handlerUrl = c.req.query("handler");
+
+    if (!handlerUrl) {
+      throw new APIError("Missing handler URL", 400);
+    }
+
+    const framerFormData = await c.req.json();
+
+    // Transform "on" and "off" values to boolean
+    Object.keys(framerFormData).forEach((key) => {
+      if (framerFormData[key] === "on") framerFormData[key] = true;
+      else if (framerFormData[key] === "off") framerFormData[key] = false;
+    });
+
+    const urlEncodedData = new URLSearchParams(framerFormData).toString();
+
+    const res = await fetch(handlerUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: urlEncodedData,
+    });
+
+    const resText = await res.text();
+
+    if (!res.ok) {
+      throw new APIError(
+        `Failed to forward data: ${resText || res.statusText}`,
+        res.status as StatusCode,
+      );
+    }
+
+    return c.text(resText);
+  },
+);
 
 export { router as forms };
