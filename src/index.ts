@@ -16,6 +16,7 @@ app.route("/auth", auth);
 app.route("/forms", forms);
 
 app.onError((err, c) => {
+  console.error(err);
   if (err instanceof APIError) {
     return c.json({ error: { message: err.message } }, err.status);
   }
