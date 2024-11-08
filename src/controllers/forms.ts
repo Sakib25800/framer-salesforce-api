@@ -12,6 +12,7 @@ import { getAccessToken } from "../services/auth";
 import { APIError } from "../utils/errors";
 import { salesforceAuth } from "../middlewares/salesforceAuth";
 import { StatusCode } from "hono/utils/http-status";
+import { verifySalesforceObject } from "../services/forms";
 
 const router = new Hono<{ Bindings: Bindings }>();
 
@@ -81,12 +82,21 @@ router.post("/web/:formToken", vValidator("json", v.object({})), async (c) => {
     throw new APIError("No authentication found for this org", 401);
   }
 
-  const StoredToken: StoredToken = JSON.parse(storedTokens);
+  const storedToken: StoredToken = JSON.parse(storedTokens);
 
   // Get fresh access token
-  const accessToken = await getAccessToken(env, StoredToken);
+  const accessToken = await getAccessToken(env, storedToken);
   if (!accessToken) {
     throw new APIError("Failed to get access token", 401);
+  }
+
+  const objectExists = await verifySalesforceObject(
+    objectName,
+    accessToken,
+    storedToken.instance_url,
+  );
+  if (!objectExists) {
+    throw new APIError("Invalid Salesforce object", 400);
   }
 
   // Get the form data
@@ -100,7 +110,7 @@ router.post("/web/:formToken", vValidator("json", v.object({})), async (c) => {
 
   // Create object in Salesforce
   const response = await fetch(
-    `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectName}`,
+    `${storedToken.instance_url}/services/data/v62.0/sobjects/${objectName}`,
     {
       method: "POST",
       headers: {
@@ -136,7 +146,7 @@ router.post("/web/:formToken", vValidator("json", v.object({})), async (c) => {
 
     // Update the existing record instead
     const updateResponse = await fetch(
-      `${StoredToken.instance_url}/services/data/v62.0/sobjects/${objectName}/${recordId}`,
+      `${storedToken.instance_url}/services/data/v62.0/sobjects/${objectName}/${recordId}`,
       {
         method: "PATCH",
         headers: {
