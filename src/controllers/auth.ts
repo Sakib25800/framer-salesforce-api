@@ -107,7 +107,7 @@ router.get("/redirect", async (c) => {
   };
 
   // Store minimal data permanently
-  await env.OAUTH_KV.put(`org:${orgId}`, JSON.stringify(StoredToken));
+  await env.ORG_KV.put(`org:${orgId}`, JSON.stringify(StoredToken));
 
   // Store full token response temporarily for polling
   await env.OAUTH_KV.put(`tokens:${readKey}`, JSON.stringify(tokens), {
