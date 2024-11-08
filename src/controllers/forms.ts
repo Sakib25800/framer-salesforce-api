@@ -30,8 +30,8 @@ router.post(
 
     const { orgId } = c.get("salesforce");
 
-    const existingFormKey = `form:${orgId}:${objectName}`;
-    const existingFormToken = await env.FORMS_KV.get(existingFormKey);
+    const existingFormKey = `${orgId}:${objectName}`;
+    const existingFormToken = await env.FORM_TOKENS_KV.get(existingFormKey);
 
     if (existingFormToken) {
       return c.json({
@@ -48,10 +48,10 @@ router.post(
     };
 
     // Save the form configuration in with the new form token
-    await env.FORMS_KV.put(`form:${formToken}`, JSON.stringify(formConfig));
+    await env.FORM_TOKENS_KV.put(`${formToken}`, JSON.stringify(formConfig));
 
     // Store the reference to this token for future lookups
-    await env.FORMS_KV.put(existingFormKey, formToken);
+    await env.FORM_TOKENS_KV.put(existingFormKey, formToken);
 
     return c.json({
       webhookUrl: `${env.WORKER_URL}/forms/web/${formToken}`,
@@ -68,7 +68,7 @@ router.post("/web/:formToken", vValidator("json", v.object({})), async (c) => {
   }
 
   // Get the form configuration from KV
-  const storedConfig = await env.FORMS_KV.get(`form:${formToken}`);
+  const storedConfig = await env.FORM_TOKENS_KV.get(formToken);
   if (!storedConfig) {
     throw new APIError("Invalid form token", 401);
   }

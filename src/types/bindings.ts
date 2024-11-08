@@ -9,6 +9,6 @@ export interface Bindings {
   TOKEN_ENDPOINT: string;
   SCOPE: string;
   OAUTH_KV: KVNamespace;
-  FORMS_KV: KVNamespace;
+  FORM_TOKENS_KV: KVNamespace;
   ORG_KV: KVNamespace;
 }

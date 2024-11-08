@@ -7,7 +7,7 @@ binding = "OAUTH_KV"
 id = "0260085845834221937488dbbdb7dd05"
 
 [[kv_namespaces]]
-binding = "FORMS_KV"
+binding = "FORM_TOKENS_KV"
 id = "d8a49240acb64a21b6ccf3e089d757b1"
 
 [[kv_namespaces]]
