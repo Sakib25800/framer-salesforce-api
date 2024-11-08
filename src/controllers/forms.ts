@@ -116,9 +116,7 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
 
   if (!response.ok) {
     const isDuplicateError =
-      Array.isArray(result) &&
-      result.length > 0 &&
-      result[0].errorCode === "DUPLICATES_DETECTED";
+      Array.isArray(result) && result[0].errorCode === "DUPLICATES_DETECTED";
 
     if (!isDuplicateError) {
       throw new APIError(
@@ -148,6 +146,11 @@ router.post("/:formToken", vValidator("json", v.object({})), async (c) => {
         body: JSON.stringify(formData),
       },
     );
+
+    if (!updateResponse.ok) {
+      const errorData: SFObjectErrorResponse[] = await updateResponse.json();
+      return c.json(errorData, 502);
+    }
 
     if (updateResponse.ok) {
       return c.json({
