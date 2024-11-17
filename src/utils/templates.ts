@@ -1,4 +1,4 @@
-export function getHTMLTemplate(text: string) {
+export function getFramerHTMLTemplate(text: string) {
   return `<html lang="en">
 		<head>
 			<meta charset="UTF-8">

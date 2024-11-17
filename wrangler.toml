@@ -1,11 +1,22 @@
 name = "framer-salesforce-api"
 main = "src/index.ts"
-compatibility_date = "2024-10-30"
+compatibility_date = "2024-10-22"
 
 [[kv_namespaces]]
 binding = "OAUTH_KV"
 id = "0260085845834221937488dbbdb7dd05"
 
+[[kv_namespaces]]
+binding = "FORMS_KV"
+id = "d8a49240acb64a21b6ccf3e089d757b1"
+
+[[kv_namespaces]]
+binding = "USERS_KV"
+id = "2dcad72981844bd38c8d58724a048db2"
+
 [observability]
 enabled = true
 head_sampling_rate = 1
+
+[dev]
+local_protocol = "https"
