@@ -70,10 +70,6 @@ WORKER_URL=https://localhost:8787
 ```
 
 ## Connected App Setup
-
-To integrate the Framer Salesforce Plugin with your Salesforce instance, you need to set up an external client app in Salesforce. This section provides a step-by-step guide to help you configure the necessary settings for both development and production environments.
-
-
 1. Sign up for a [Salesforce Developer account](https://developer.salesforce.com/signup)
 2. You should end up at the Setup page. If not, click on the gear icon in the top-right corner and press 'Setup'
 3. Head to 'App Manager' via the quick finder > New Connected App > Create a Connected App
