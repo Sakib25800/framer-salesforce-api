@@ -1,5 +1,13 @@
-import type { AppBindings, RefreshTokensResponse, SFUser } from "../types";
-import { APIError } from "../utils/errors";
+import { Context } from "hono";
+import type {
+  AppBindings,
+  AppContext,
+  KVStores,
+  RefreshTokensResponse,
+  SFUser,
+} from "../types";
+import { APIError, SalesforceAPIError } from "../utils/errors";
+import { StatusCode } from "hono/utils/http-status";
 
 interface RefreshTokenError {
   error: string;
@@ -17,7 +25,7 @@ export async function fetchNewAccessToken(
     client_secret: env.CLIENT_SECRET,
   });
 
-  const refreshUrl = new URL(env.TOKEN_ENDPOINT);
+  const refreshUrl = new URL(`${env.OAUTH_BASE_URL}${env.TOKEN_PATH}`);
   refreshUrl.search = refreshParams.toString();
 
   const refreshRes = await fetch(refreshUrl.toString(), {
@@ -37,19 +45,77 @@ export async function fetchNewAccessToken(
   return tokens.access_token;
 }
 
-export async function fetchUser(accessToken: string): Promise<SFUser> {
-  const res = await fetch(
-    "https://login.salesforce.com/services/oauth2/userinfo",
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+export async function fetchUser(
+  env: AppBindings,
+  accessToken: string,
+): Promise<SFUser> {
+  const res = await fetch(env.OAUTH_BASE_URL + "/userinfo", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
     },
-  );
+  });
 
   if (!res.ok) {
     throw new APIError("Failed to fetch Salesforce user");
   }
 
   return res.json();
+}
+
+export async function revokeSalesforceRefreshToken(
+  env: AppBindings,
+  refreshToken: string,
+): Promise<void> {
+  const response = await fetch(env.OAUTH_BASE_URL + "/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `token=${refreshToken}`,
+  });
+
+  // Successful revoke
+  if (response.ok) return;
+
+  // Token is invalid or already revoked, ignore
+  if (response.status === 400) {
+    return;
+  }
+
+  throw new SalesforceAPIError(
+    "Failed to revoke refresh token",
+    response.status as StatusCode,
+  );
+}
+
+/**
+ * Delete all user data from KV
+ */
+export async function deleteUserTokens(
+  kv: KVStores,
+  userId: string,
+): Promise<void> {
+  // Delete refresh token
+  await kv.storedTokens.delete({ userId });
+
+  // Delete associated webFormTokens
+  const webFormTokenKeys = await kv.webFormTokens.listKeys({
+    formToken: `web:${userId}`,
+  });
+
+  for (const key of webFormTokenKeys) {
+    await kv.webFormTokens.delete({ formToken: key.split(":")[1] });
+  }
+}
+
+export async function logout(c: Context) {
+  const { userId } = c.get("user");
+  const kv = c.get("kv");
+
+  // Revoke refresh tokens
+  const storedTokens = await kv.storedTokens.get({ userId });
+  if (storedTokens) {
+    await revokeSalesforceRefreshToken(c.env, storedTokens.refreshToken);
+  }
+
+  // Delete all user data
+  await deleteUserTokens(c.get("kv"), userId);
 }

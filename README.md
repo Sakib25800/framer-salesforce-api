@@ -55,10 +55,11 @@ CLIENT_ID=XXXXXXX
 CLIENT_SECRET=XXXXXXX
 
 REDIRECT_PATH=/auth/redirect
-AUTHORIZE_ENDPOINT=https://login.salesforce.com/services/oauth2/authorize
-TOKEN_ENDPOINT=https://login.salesforce.com/services/oauth2/token
+OAUTH_BASE_URL=https://login.salesforce.com/services/oauth2
+AUTHORIZE_PATH=/authorize
+TOKEN_PATH=/token
 
-SCOPE=api web openid pardot_api refresh_token offline_access
+SCOPE=api web pardot_api refresh_token offline_access
 
 # CORS
 PLUGIN_ID=""

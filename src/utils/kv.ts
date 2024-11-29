@@ -83,6 +83,12 @@ export class KV<TSchema extends v.GenericSchema, TKeyPattern extends string> {
     await this.kv.put(key, JSON.stringify(output), options);
   }
 
+  async listKeys(params: KeyParams<TKeyPattern>): Promise<string[]> {
+    const prefix = this.buildKey(params);
+    const listResponse = await this.kv.list({ prefix });
+    return listResponse.keys.map((key) => key.name);
+  }
+
   async delete(params: KeyParams<TKeyPattern>): Promise<void> {
     const key = this.buildKey(params);
     await this.kv.delete(key);

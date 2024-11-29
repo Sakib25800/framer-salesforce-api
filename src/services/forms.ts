@@ -27,6 +27,7 @@ async function updateSalesforceObject(
 
   throw new SalesforceAPIError(
     `Failed to update object with id: '${recordId}'`,
+    400,
     updatedObjectRes.errors,
   );
 }
@@ -56,6 +57,7 @@ export async function upsertSalesforceObject(
       if (!recordId) {
         throw new SalesforceAPIError(
           "Expected `recordId` for duplicate record error",
+          400,
           newObjectRes.errors,
         );
       }
@@ -65,6 +67,7 @@ export async function upsertSalesforceObject(
     default: {
       throw new SalesforceAPIError(
         "Failed to upsert object",
+        400,
         newObjectRes.errors,
       );
     }
@@ -78,7 +81,7 @@ export async function assertSalesforceObject(c: Context, objectName: string) {
   });
 
   if (!res.ok) {
-    throw new SalesforceAPIError("Object does not exist", res.errors);
+    throw new SalesforceAPIError("Object does not exist", 400, res.errors);
   }
 }
 

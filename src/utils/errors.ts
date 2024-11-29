@@ -1,5 +1,5 @@
 import { StatusCode } from "hono/utils/http-status";
-import { AEError, SFError } from "../types";
+import { SFError } from "../types";
 
 export class APIError extends Error {
   constructor(
@@ -14,8 +14,8 @@ export class APIError extends Error {
 export class SalesforceAPIError extends APIError {
   constructor(
     message: string,
-    public salesforceErrors: SFError[],
     public status: StatusCode = 502,
+    public salesforceErrors?: SFError[],
   ) {
     super(message, status);
     Object.setPrototypeOf(this, SalesforceAPIError.prototype);

@@ -9,8 +9,14 @@ import {
   generateCodeVerifier,
   generateCodeChallenge,
 } from "../utils/helpers";
-import { fetchUser } from "../services/auth";
+import {
+  deleteUserTokens,
+  fetchUser,
+  logout,
+  revokeSalesforceRefreshToken,
+} from "../services/auth";
 import type { TokensResponse, AppContext } from "../types";
+import { authMiddleware } from "../middlewares";
 
 const router = new Hono<AppContext>();
 
@@ -34,7 +40,7 @@ router.post("/authorize", async (c) => {
   authorizeParams.append("scope", env.SCOPE);
   authorizeParams.append("state", writeKey);
 
-  const authorizeUrl = new URL(env.AUTHORIZE_ENDPOINT);
+  const authorizeUrl = new URL(`${env.OAUTH_BASE_URL}${env.AUTHORIZE_PATH}`);
   authorizeUrl.search = authorizeParams.toString();
 
   await c
@@ -73,7 +79,7 @@ router.get(
       code_verifier: storedTokens.codeVerifier,
     });
 
-    const tokenUrl = new URL(env.TOKEN_ENDPOINT);
+    const tokenUrl = new URL(`${env.OAUTH_BASE_URL}${env.TOKEN_PATH}`);
     tokenUrl.search = tokenParams.toString();
 
     const tokenResponse = await fetch(tokenUrl.toString(), {
@@ -96,7 +102,7 @@ router.get(
     const identityUrl = new URL(tokens.id);
     const orgId = identityUrl.pathname.split("/")[2];
 
-    const user = await fetchUser(tokens.access_token);
+    const user = await fetchUser(env, tokens.access_token);
 
     await c.get("kv").storedTokens.put(
       { userId: user.user_id },
@@ -165,7 +171,7 @@ router.post(
       client_secret: env.CLIENT_SECRET,
     });
 
-    const tokenUrl = new URL(env.TOKEN_ENDPOINT);
+    const tokenUrl = new URL(`${env.OAUTH_BASE_URL}${env.TOKEN_PATH}`);
     tokenUrl.search = tokenParams.toString();
 
     const tokenRes = await fetch(tokenUrl.toString(), {
@@ -184,5 +190,11 @@ router.post(
     return c.json(tokens);
   },
 );
+
+router.post("/logout", authMiddleware, async (c) => {
+  await logout(c);
+
+  return c.json({ message: "Logout successful" });
+});
 
 export { router as authController };

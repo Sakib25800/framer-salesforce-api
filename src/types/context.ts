@@ -17,8 +17,10 @@ export interface AppBindings {
   PLUGIN_ID: string;
   PLUGIN_PARENT_DOMAIN: string;
   REDIRECT_PATH: string;
-  AUTHORIZE_ENDPOINT: string;
-  TOKEN_ENDPOINT: string;
+  OAUTH_BASE_URL: string;
+  AUTHORIZE_PATH: string;
+  TOKEN_PATH: string;
+  REVOKE_PATH: string;
   SCOPE: string;
   OAUTH_KV: KVNamespace;
   FORMS_KV: KVNamespace;
